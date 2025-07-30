@@ -1,17 +1,3 @@
-# Core Data & Computation
-numpy
-pandas
-
-scikit-learn
-keras
-tensorflow
-
-
-streamlit
-matplotlib
-seaborn
-
-
 # Core ML and Data Processing
 torch>=2.0.0
 pandas>=2.0.0
@@ -21,11 +7,9 @@ scikit-learn>=1.3.0
 # Web UI Framework
 streamlit>=1.28.0
 
-
-# Visualization (optional for extended features)
+# Visualization
 matplotlib>=3.7.0
 seaborn>=0.12.0
-plotly>=5.15.0
 
-# Utility packages
-pickle-mixin>=1.0.2
+# Utility packages for file handling
+pickle5

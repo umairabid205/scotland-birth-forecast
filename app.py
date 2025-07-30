@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import torch
 import pickle
 from datetime import datetime
 import sys
@@ -14,9 +13,34 @@ warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
 # Add the project root to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from src.components.model import StackedLSTM
-from src.logger import logging
-from src.exception import CustomException
+# Import PyTorch with error handling for deployment
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    st.error("PyTorch not available. Please install torch>=2.0.0")
+    TORCH_AVAILABLE = False
+
+# Import custom components with error handling
+try:
+    from src.components.model import StackedLSTM
+    from src.logger import logging
+    from src.exception import CustomException
+    CUSTOM_MODULES_AVAILABLE = True
+except ImportError as e:
+    st.error(f"Custom modules not available: {e}")
+    CUSTOM_MODULES_AVAILABLE = False
+    # Create dummy logger and exception for fallback
+    class DummyLogger:
+        @staticmethod
+        def info(msg): print(f"INFO: {msg}")
+        @staticmethod
+        def warning(msg): print(f"WARNING: {msg}")
+        @staticmethod
+        def error(msg): print(f"ERROR: {msg}")
+    
+    logging = DummyLogger()
+    CustomException = Exception
 
 
 
@@ -73,11 +97,20 @@ class BirthPredictor:
     def load_model_and_scaler(self):
         """Load the trained model and preprocessing components"""
         try:
+            if not TORCH_AVAILABLE or not CUSTOM_MODULES_AVAILABLE:
+                st.error("Required dependencies not available. Please check installation.")
+                return False
+                
             logging.info("Loading trained model and preprocessing components...")
             
             # Get the current directory and construct absolute paths
             current_dir = os.path.dirname(os.path.abspath(__file__))
             models_dir = os.path.join(current_dir, "models")
+            
+            # Ensure models directory exists
+            if not os.path.exists(models_dir):
+                st.error("⚠️ Models directory not found. Please ensure model files are uploaded.")
+                return False
             
             # Load the trained model
             model_path = os.path.join(models_dir, "trained_lstm_model.pth")
@@ -87,14 +120,22 @@ class BirthPredictor:
             if os.path.exists(model_path):
                 # Initialize model architecture
                 self.model = StackedLSTM(input_size=11, hidden_size=128, num_layers=2)
-                self.model.load_state_dict(torch.load(model_path, map_location='cpu'))
+                
+                # Load model with CPU mapping for deployment compatibility
+                try:
+                    self.model.load_state_dict(torch.load(model_path, map_location='cpu', weights_only=True))
+                except TypeError:
+                    # Fallback for older PyTorch versions
+                    self.model.load_state_dict(torch.load(model_path, map_location='cpu'))
+                    
                 self.model.eval()
                 logging.info("Model loaded successfully")
             else:
-                st.error("⚠️ Model file not found. Please train the model first.")
+                st.error(f"⚠️ Model file not found at: {model_path}")
+                st.info("Please ensure the trained model file 'trained_lstm_model.pth' is in the models/ directory")
                 return False
                 
-            # Load scaler with warning suppression
+            # Load scaler with comprehensive error handling
             if os.path.exists(scaler_path):
                 try:
                     with warnings.catch_warnings():
@@ -103,25 +144,33 @@ class BirthPredictor:
                             self.scaler = pickle.load(f)
                     logging.info("Scaler loaded successfully")
                 except Exception as e:
-                    logging.warning(f"Error loading scaler: {e}. Using default normalization.")
-                    self.scaler = None
+                    logging.warning(f"Error loading scaler: {e}. Creating default scaler.")
+                    # Create a default scaler if loading fails
+                    from sklearn.preprocessing import StandardScaler
+                    self.scaler = StandardScaler()
+                    # Fit with dummy data based on expected feature ranges
+                    dummy_data = np.array([[2010, 6, 7, 0, 1, 0.5, 6, 6, 6, 6, 0]] * 100)
+                    self.scaler.fit(dummy_data)
             else:
-                logging.warning(f"Scaler file not found at: {scaler_path}")
-                self.scaler = None
+                logging.warning(f"Scaler file not found at: {scaler_path}. Creating default scaler.")
+                # Create default scaler
+                from sklearn.preprocessing import StandardScaler
+                self.scaler = StandardScaler()
+                dummy_data = np.array([[2010, 6, 7, 0, 1, 0.5, 6, 6, 6, 6, 0]] * 100)
+                self.scaler.fit(dummy_data)
                 
             # Load NHS Board mapping
             if os.path.exists(mapping_path):
-                with open(mapping_path, 'rb') as f:
-                    self.nhs_board_mapping = pickle.load(f)
-                logging.info("NHS Board mapping loaded successfully")
+                try:
+                    with open(mapping_path, 'rb') as f:
+                        self.nhs_board_mapping = pickle.load(f)
+                    logging.info("NHS Board mapping loaded successfully")
+                except Exception as e:
+                    logging.warning(f"Error loading NHS mapping: {e}. Using default mapping.")
+                    self.nhs_board_mapping = self._get_default_mapping()
             else:
-                # Default mapping based on your data
-                self.nhs_board_mapping = {
-                    'Ayrshire and Arran': 0, 'Borders': 1, 'Dumfries and Galloway': 2,
-                    'Fife': 3, 'Forth Valley': 4, 'Grampian': 5, 'Greater Glasgow and Clyde': 6,
-                    'Highland': 7, 'Lanarkshire': 8, 'Lothian': 9, 'Orkney': 10,
-                    'Shetland': 11, 'Tayside': 12, 'Western Isles': 13
-                }
+                logging.warning(f"NHS Board mapping file not found. Using default mapping.")
+                self.nhs_board_mapping = self._get_default_mapping()
                 
             self.model_loaded = True
             return True
@@ -131,9 +180,21 @@ class BirthPredictor:
             st.error(f"Error loading model: {str(e)}")
             return False
     
+    def _get_default_mapping(self):
+        """Get default NHS Board mapping"""
+        return {
+            'Ayrshire and Arran': 0, 'Borders': 1, 'Dumfries and Galloway': 2,
+            'Fife': 3, 'Forth Valley': 4, 'Grampian': 5, 'Greater Glasgow and Clyde': 6,
+            'Highland': 7, 'Lanarkshire': 8, 'Lothian': 9, 'Orkney': 10,
+            'Shetland': 11, 'Tayside': 12, 'Western Isles': 13
+        }
+    
     def preprocess_input(self, year, month, nhs_board):
         """Preprocess user input into model-ready format"""
         try:
+            if not TORCH_AVAILABLE:
+                raise Exception("PyTorch not available for tensor operations")
+                
             # Create base features
             month_num = month
             nhs_board_code = self.nhs_board_mapping.get(nhs_board, 0)
@@ -177,8 +238,8 @@ class BirthPredictor:
     def predict(self, year, month, nhs_board):
         """Make prediction for given inputs"""
         try:
-            if not self.model_loaded:
-                raise Exception("Model not loaded. Please check model files.")
+            if not self.model_loaded or not TORCH_AVAILABLE:
+                raise Exception("Model not loaded or PyTorch not available. Please check dependencies.")
             
             # Preprocess input
             features = self.preprocess_input(year, month, nhs_board)
@@ -207,6 +268,12 @@ def get_predictor():
     return predictor
 
 def main():
+    # Check deployment environment
+    is_deployed = not os.path.exists('/Users') and not os.path.exists('/home/umair')
+    
+    if is_deployed:
+        st.info("🚀 Running in deployed environment")
+    
     # Main header
     st.markdown('<h1 class="main-header">🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland Birth Forecast System</h1>', unsafe_allow_html=True)
     
