@@ -14,6 +14,8 @@ from src.components.model import StackedLSTM
 from src.logger import logging
 from src.exception import CustomException
 
+
+
 # Configure Streamlit page
 st.set_page_config(
     page_title="Scotland Birth Forecast",
@@ -69,10 +71,14 @@ class BirthPredictor:
         try:
             logging.info("Loading trained model and preprocessing components...")
             
-            # Load the trained model (you'll need to save this from your training pipeline)
-            model_path = "models/trained_lstm_model.pth"
-            scaler_path = "models/feature_scaler.pkl"
-            mapping_path = "models/nhs_board_mapping.pkl"
+            # Get the current directory and construct absolute paths
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            models_dir = os.path.join(current_dir, "models")
+            
+            # Load the trained model
+            model_path = os.path.join(models_dir, "trained_lstm_model.pth")
+            scaler_path = os.path.join(models_dir, "feature_scaler.pkl")
+            mapping_path = os.path.join(models_dir, "nhs_board_mapping.pkl")
             
             if os.path.exists(model_path):
                 # Initialize model architecture
@@ -91,6 +97,7 @@ class BirthPredictor:
                 logging.info("Scaler loaded successfully")
             else:
                 st.warning("⚠️ Scaler not found. Using default normalization.")
+                logging.warning(f"Scaler file not found at: {scaler_path}")
                 
             # Load NHS Board mapping
             if os.path.exists(mapping_path):
@@ -167,6 +174,8 @@ class BirthPredictor:
             features = self.preprocess_input(year, month, nhs_board)
             
             # Make prediction
+            if self.model is None:
+                raise Exception("Model is not loaded. Please check the model file and loading process.")
             with torch.no_grad():
                 log_prediction = self.model(features).item()
             
