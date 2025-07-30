@@ -6,6 +6,10 @@ import pickle
 from datetime import datetime
 import sys
 import os
+import warnings
+
+# Suppress sklearn version warnings
+warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
 
 # Add the project root to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -90,14 +94,20 @@ class BirthPredictor:
                 st.error("⚠️ Model file not found. Please train the model first.")
                 return False
                 
-            # Load scaler
+            # Load scaler with warning suppression
             if os.path.exists(scaler_path):
-                with open(scaler_path, 'rb') as f:
-                    self.scaler = pickle.load(f)
-                logging.info("Scaler loaded successfully")
+                try:
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+                        with open(scaler_path, 'rb') as f:
+                            self.scaler = pickle.load(f)
+                    logging.info("Scaler loaded successfully")
+                except Exception as e:
+                    logging.warning(f"Error loading scaler: {e}. Using default normalization.")
+                    self.scaler = None
             else:
-                st.warning("⚠️ Scaler not found. Using default normalization.")
                 logging.warning(f"Scaler file not found at: {scaler_path}")
+                self.scaler = None
                 
             # Load NHS Board mapping
             if os.path.exists(mapping_path):
