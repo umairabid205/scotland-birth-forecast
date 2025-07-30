@@ -10,6 +10,3 @@ streamlit>=1.28.0
 # Visualization
 matplotlib>=3.7.0
 seaborn>=0.12.0
-
-# Utility packages for file handling
-pickle5
