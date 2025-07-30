@@ -1,43 +1,30 @@
 # Core Data & Computation
-numpy>=1.26.0
-pandas>=2.1.0
-scipy>=1.11.0
+numpy
+pandas
+
+scikit-learn
+keras
+tensorflow
+
+
+streamlit
+matplotlib
+seaborn
+
+
+# Core ML and Data Processing
+torch>=2.0.0
+pandas>=2.0.0
+numpy>=1.24.0
 scikit-learn>=1.3.0
 
-# Deep Learning Frameworks (Python 3.13 compatible alternatives)
-torch>=2.1.0
-torchvision>=0.16.0
-
-# Time Series Specialized
-statsmodels>=0.14.0
-
-# Dashboard & Visualization
+# Web UI Framework
 streamlit>=1.28.0
-plotly>=5.17.0
-matplotlib>=3.8.0
-seaborn>=0.13.0
 
-# Hyperparameter Tuning
-# optuna>=3.4.0  # May have compatibility issues
+# Visualization (optional for extended features)
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.15.0
 
-# Utility Libraries
-python-dotenv>=1.0.0
-pyyaml>=6.0.1
-tqdm>=4.66.0
-loguru>=0.7.2
-
-# API & Data Fetching
-requests>=2.31.0
-
-# Development & Testing
-pytest>=7.4.0
-black>=23.9.0
-
-# Time Series Alternatives
-# sktime>=0.24.0  # May have build issues with Python 3.13
-# pmdarima>=2.0.4  # Has build issues with Python 3.13
-
-# Additional useful packages for forecasting
-joblib>=1.3.0
-xlsxwriter>=3.1.0
-openpyxl>=3.1.0
+# Utility packages
+pickle-mixin>=1.0.2
