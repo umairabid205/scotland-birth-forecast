@@ -25,10 +25,12 @@ except ImportError:
 
 # Import custom components with error handling
 try:
+
     from src.components.model import StackedLSTM  # type: ignore
     from src.logger import logging
     from src.exception import CustomException
     CUSTOM_MODULES_AVAILABLE = True
+
 except ImportError as e:
     CUSTOM_MODULES_AVAILABLE = False
     # Create dummy logger and exception for fallback
@@ -39,12 +41,15 @@ except ImportError as e:
         def warning(msg): print(f"WARNING: {msg}")
         @staticmethod
         def error(msg): print(f"ERROR: {msg}")
-    
+
     logging = DummyLogger()
     CustomException = Exception
 
+
+
     # Dummy StackedLSTM fallback
     class StackedLSTM:
+        """ Dummy StackedLSTM class for fallback in case of import failure. """
         def __init__(self, *args, **kwargs):
             pass
         def load_state_dict(self, *args, **kwargs):
@@ -57,6 +62,7 @@ except ImportError as e:
                 def item(self):
                     return np.log1p(100.0)
             return DummyResult()
+
 
 # Configure Streamlit page
 st.set_page_config(
@@ -351,10 +357,10 @@ def main():
     )
     selected_month = months.index(selected_month_name) + 1
     
-    # Main content area
-    col1, col2 = st.columns([2, 1])
+    # Create tabs for different sections
+    tab1, tab2 = st.tabs(["🔮 Birth Prediction", "📊 Dashboard Analytics"])
     
-    with col1:
+    with tab1:
         st.markdown('<h2 class="sub-header">🔮 Birth Prediction</h2>', unsafe_allow_html=True)
         
         # Display selected parameters
@@ -402,34 +408,46 @@ def main():
                 st.error(f"❌ Error generating prediction: {str(e)}")
                 logging.error(f"UI Error: {str(e)}")
     
-    with col2:
-        st.markdown('<h2 class="sub-header">ℹ️ Information</h2>', unsafe_allow_html=True)
+    with tab2:
+        st.markdown('<h2 class="sub-header">📊 Scotland Birth Rate Analytics Dashboard</h2>', unsafe_allow_html=True)
         
-        st.info("""
-        **About this System:**
+        st.markdown("""
+        <div class="info-box">
+            <h4>Interactive Tableau Dashboard</h4>
+            <p>Explore historical birth data trends across Scottish NHS Board areas with interactive visualizations.</p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        This application uses a trained LSTM neural network to predict birth registrations in Scotland NHS Board areas.
+        # Embed Tableau dashboard
+        tableau_url = "https://public.tableau.com/views/ScotlandsBirthrate/Dashboard1"
         
-        **Model Features:**
-        - 2-layer LSTM with 128 hidden units
-        - Trained on historical data (1998-2022)
-        - Uses temporal features and cyclical encoding
-        - Achieves ~98% accuracy on test data
+        # Create iframe for Tableau dashboard
+        tableau_embed_code = f"""
+        <div style="margin: 20px 0;">
+            <iframe 
+                src="{tableau_url}?:embed=yes&:display_count=yes&:origin=viz_share_link&:showVizHome=no" 
+                width="100%" 
+                height="800" 
+                style="border: none; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+            </iframe>
+        </div>
+        """
         
-        **Input Requirements:**
-        - Year: 2023 onwards
-        - Month: Any month of the year
-        - NHS Board: Scottish health board area
+        st.markdown(tableau_embed_code, unsafe_allow_html=True)
+        
+        # Additional information about the dashboard
+        st.markdown("""
+        ### 📈 Dashboard Features:
+        - **Historical Trends**: View birth registration patterns over time
+        - **Regional Analysis**: Compare birth rates across NHS Board areas
+        - **Interactive Filters**: Explore data by year, month, and region
+        - **Visual Insights**: Charts and graphs for better understanding
+        
+        ### 🔗 External Access:
+        You can also view this dashboard directly on Tableau Public: 
+        [Scotland's Birth Rate Dashboard](https://public.tableau.com/app/profile/umairabid205/viz/ScotlandsBirthrate/Dashboard1)
         """)
-        
-        st.warning("""
-        **Note:** This is a demonstration system. 
-        For production use, ensure:
-        - Recent historical data for lag features
-        - Regular model retraining
-        - Proper validation of inputs
-        """)
-
+    
     # Footer
     st.markdown("---")
     st.markdown("""
