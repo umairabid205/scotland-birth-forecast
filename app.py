@@ -231,9 +231,15 @@ class BirthPredictor:
                         warnings.simplefilter("ignore")
                         with open(scaler_path, 'rb') as f: # Load the scaler 
                             self.scaler = pickle.load(f)
-                    logging.info("Scaler loaded successfully")
+                    logging.info("✅ Scaler loaded successfully")
+                    
+                    # DEBUG: Log scaler parameters immediately after loading
+                    if hasattr(self.scaler, 'mean_') and self.scaler.mean_ is not None:
+                        logging.info(f"🔍 Loaded scaler mean: {self.scaler.mean_}")
+                        logging.info(f"🔍 Loaded scaler scale: {self.scaler.scale_}")
+                    
                 except Exception as e:
-                    logging.warning(f"Error loading scaler: {e}. Creating default scaler.")
+                    logging.warning(f"❌ Error loading scaler: {e}. Creating default scaler.")
                     # Create a default scaler if loading fails
                     from sklearn.preprocessing import StandardScaler
                     self.scaler = StandardScaler()
@@ -288,6 +294,11 @@ class BirthPredictor:
             month_num = month
             nhs_board_code = self.nhs_board_mapping.get(nhs_board, 0)
             
+            # DEBUG: Log input values
+            logging.info(f"🔍 PREPROCESSING DEBUG:")
+            logging.info(f"   Input: year={year}, month={month}, nhs_board={nhs_board}")
+            logging.info(f"   NHS board code: {nhs_board_code}")
+            
             # Cyclical encoding for month
             month_sin = np.sin(2 * np.pi * month_num / 12)
             month_cos = np.cos(2 * np.pi * month_num / 12)
@@ -304,20 +315,37 @@ class BirthPredictor:
             birth_rolling_avg = avg_births
             birth_trend = 0.0
             
+            logging.info(f"   Cyclical: sin={month_sin:.6f}, cos={month_cos:.6f}")
+            logging.info(f"   Year norm: {year_norm:.6f}")
+            logging.info(f"   Lag features: {birth_lag_1}")
+            
             # Create feature vector
             features = np.array([[
                 year, month_num, nhs_board_code, month_sin, month_cos, year_norm,
                 birth_lag_1, birth_lag_2, birth_lag_3, birth_rolling_avg, birth_trend
             ]], dtype=np.float32)
             
+            logging.info(f"   Raw features: {features[0]}")
+            
             # Apply scaling if scaler is available
             if self.scaler is not None:
+                logging.info(f"   Scaler type: {type(self.scaler)}")
+                
+                # DEBUG: Log scaler parameters
+                if hasattr(self.scaler, 'mean_') and self.scaler.mean_ is not None:
+                    logging.info(f"   Scaler mean (sample): {self.scaler.mean_[:5]}")
+                if hasattr(self.scaler, 'scale_') and self.scaler.scale_ is not None:
+                    logging.info(f"   Scaler scale (sample): {self.scaler.scale_[:5]}")
+                
                 features = self.scaler.transform(features)
+                logging.info(f"   Scaled features: {features[0]}")
+            else:
+                logging.warning("   No scaler available!")
             
             # Convert to tensor format expected by model
             if TORCH_AVAILABLE and torch_module:
                 features_tensor = torch_module.tensor(features, dtype=torch_module.float32).unsqueeze(1)  # (1, 1, 11)
-                logging.info(f"Preprocessed features shape: {features_tensor.shape}")
+                logging.info(f"   Tensor shape: {features_tensor.shape}")
             else:
                 # Create a dummy tensor-like object
                 class DummyTensor:
@@ -327,7 +355,7 @@ class BirthPredictor:
                     def unsqueeze(self, dim):
                         return self
                 features_tensor = DummyTensor(features)
-                logging.info(f"Preprocessed features shape: {features_tensor.shape}")
+                logging.info(f"   Dummy tensor shape: {features_tensor.shape}")
             
             return features_tensor
             
@@ -485,10 +513,24 @@ def main():
                     st.write(f"**Custom Modules Available:** {CUSTOM_MODULES_AVAILABLE}")
                     st.write(f"**Model Loaded:** {predictor.model_loaded}")
                     st.write(f"**Environment:** {'Deployed' if is_deployed else 'Local'}")
+                    st.write(f"**Python Version:** {sys.version}")
                     
                     if predictor.model is not None:
                         model_type = "Real LSTM Model" if not hasattr(predictor.model, 'is_dummy') else "Fallback/Dummy Model"
                         st.write(f"**Model Type:** {model_type}")
+                    
+                    # Add scaler debug info
+                    if predictor.scaler is not None:
+                        if hasattr(predictor.scaler, 'mean_') and predictor.scaler.mean_ is not None:
+                            st.write(f"**Scaler Mean (first 3):** {predictor.scaler.mean_[:3]}")
+                        if hasattr(predictor.scaler, 'scale_') and predictor.scaler.scale_ is not None:
+                            st.write(f"**Scaler Scale (first 3):** {predictor.scaler.scale_[:3]}")
+                    else:
+                        st.write("**Scaler:** Not loaded")
+                    
+                    # Add NHS board mapping debug
+                    nhs_code = predictor.nhs_board_mapping.get(selected_nhs_board, -1)
+                    st.write(f"**NHS Board Code:** {selected_nhs_board} → {nhs_code}")
                 
                 if predictor.model_loaded:
                     with st.spinner('🔄 Generating prediction...'):
