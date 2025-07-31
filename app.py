@@ -107,7 +107,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
+
 class BirthPredictor:
+    """Class to handle birth prediction using a trained model and preprocessing components."""
     def __init__(self):
         self.model = None
         self.scaler = None
@@ -117,6 +120,7 @@ class BirthPredictor:
     def load_model_and_scaler(self):
         """Load the trained model and preprocessing components"""
         try:
+
             if not TORCH_AVAILABLE or not CUSTOM_MODULES_AVAILABLE:
                 st.error("Required dependencies not available. Please check installation.")
                 return False
@@ -136,6 +140,7 @@ class BirthPredictor:
             model_path = os.path.join(models_dir, "trained_lstm_model.pth")
             scaler_path = os.path.join(models_dir, "feature_scaler.pkl")
             mapping_path = os.path.join(models_dir, "nhs_board_mapping.pkl")
+
             
             if os.path.exists(model_path):
                 # Initialize model architecture
@@ -166,7 +171,7 @@ class BirthPredictor:
                 try:
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore")
-                        with open(scaler_path, 'rb') as f:
+                        with open(scaler_path, 'rb') as f: # Load the scaler 
                             self.scaler = pickle.load(f)
                     logging.info("Scaler loaded successfully")
                 except Exception as e:
