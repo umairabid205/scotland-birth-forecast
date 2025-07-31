@@ -51,6 +51,7 @@ except ImportError as e:
     class StackedLSTM:
         """ Dummy StackedLSTM class for fallback in case of import failure. """
         def __init__(self, *args, **kwargs):
+            self.is_dummy = True  # Mark as dummy model
             pass
         def load_state_dict(self, *args, **kwargs):
             pass
@@ -60,7 +61,7 @@ except ImportError as e:
             # Return a dummy result
             class DummyResult:
                 def item(self):
-                    return np.log1p(100.0)
+                    return np.log1p(100.0)  # This gives ~100 births after expm1
             return DummyResult()
 
 
@@ -120,9 +121,23 @@ class BirthPredictor:
     def load_model_and_scaler(self):
         """Load the trained model and preprocessing components"""
         try:
-
+            # Debug logging for deployment
+            logging.info(f"TORCH_AVAILABLE: {TORCH_AVAILABLE}")
+            logging.info(f"CUSTOM_MODULES_AVAILABLE: {CUSTOM_MODULES_AVAILABLE}")
+            
+            if not TORCH_AVAILABLE:
+                st.error("❌ PyTorch not available. This will affect prediction accuracy.")
+                st.warning("⚠️ Running with fallback prediction mode - results may be inaccurate.")
+                
+            if not CUSTOM_MODULES_AVAILABLE:
+                st.error("❌ Custom modules not available. This will affect prediction accuracy.")
+                st.warning("⚠️ Running with dummy model - results may be inaccurate.")
+                
+            # Force fail if critical dependencies missing in production
             if not TORCH_AVAILABLE or not CUSTOM_MODULES_AVAILABLE:
-                st.error("Required dependencies not available. Please check installation.")
+                st.error("🚫 Critical dependencies missing. Please check deployment configuration.")
+                if st.button("🔄 Retry Loading"):
+                    st.rerun()
                 return False
                 
             logging.info("Loading trained model and preprocessing components...")
@@ -130,6 +145,9 @@ class BirthPredictor:
             # Get the current directory and construct absolute paths
             current_dir = os.path.dirname(os.path.abspath(__file__))
             models_dir = os.path.join(current_dir, "models")
+            
+            logging.info(f"Current directory: {current_dir}")
+            logging.info(f"Models directory: {models_dir}")
             
             # Ensure models directory exists
             if not os.path.exists(models_dir):
@@ -141,26 +159,51 @@ class BirthPredictor:
             scaler_path = os.path.join(models_dir, "feature_scaler.pkl")
             mapping_path = os.path.join(models_dir, "nhs_board_mapping.pkl")
 
+            # Check file existence with detailed logging
+            logging.info(f"Model path exists: {os.path.exists(model_path)}")
+            logging.info(f"Scaler path exists: {os.path.exists(scaler_path)}")
+            logging.info(f"Mapping path exists: {os.path.exists(mapping_path)}")
             
             if os.path.exists(model_path):
                 # Initialize model architecture
                 self.model = StackedLSTM(input_size=11, hidden_size=128, num_layers=2)
                 
                 # Load model with CPU mapping for deployment compatibility
+                model_load_success = False
                 try:
                     if TORCH_AVAILABLE and torch_module:
-                        self.model.load_state_dict(torch_module.load(model_path, map_location='cpu', weights_only=True))
+                        # Try modern PyTorch first
+                        try:
+                            state_dict = torch_module.load(model_path, map_location='cpu', weights_only=True)
+                            logging.info("Loaded model with weights_only=True")
+                        except TypeError:
+                            # Fallback for older PyTorch versions
+                            state_dict = torch_module.load(model_path, map_location='cpu')
+                            logging.info("Loaded model with legacy method")
+                        
+                        self.model.load_state_dict(state_dict)
+                        self.model.eval()
+                        
+                        # Verify model is actually loaded
+                        test_input = torch_module.zeros(1, 1, 11)
+                        with torch_module.no_grad():
+                            test_output = self.model(test_input)
+                            logging.info(f"Model test output: {test_output.item()}")
+                            
+                        model_load_success = True
                     else:
                         raise Exception("PyTorch not available")
-                except TypeError:
-                    # Fallback for older PyTorch versions
-                    if TORCH_AVAILABLE and torch_module:
-                        self.model.load_state_dict(torch_module.load(model_path, map_location='cpu'))
-                    else:
-                        raise Exception("PyTorch not available")
-                    
-                self.model.eval()
-                logging.info("Model loaded successfully")
+                        
+                except Exception as e:
+                    logging.error(f"Failed to load model: {str(e)}")
+                    st.error(f"❌ Failed to load model: {str(e)}")
+                    return False
+                
+                if model_load_success:
+                    logging.info("✅ Model loaded successfully")
+                else:
+                    logging.error("❌ Model loading failed")
+                    return False
             else:
                 st.error(f"⚠️ Model file not found at: {model_path}")
                 st.info("Please ensure the trained model file 'trained_lstm_model.pth' is in the models/ directory")
@@ -280,8 +323,28 @@ class BirthPredictor:
     def predict(self, year, month, nhs_board):
         """Make prediction for given inputs"""
         try:
-            if not self.model_loaded or not TORCH_AVAILABLE:
-                raise Exception("Model not loaded or PyTorch not available. Please check dependencies.")
+            # Debug logging
+            logging.info(f"Prediction request: {nhs_board}, {month}/{year}")
+            logging.info(f"Model loaded: {self.model_loaded}")
+            logging.info(f"PyTorch available: {TORCH_AVAILABLE}")
+            logging.info(f"Using real model: {self.model is not None and not hasattr(self.model, 'is_dummy')}")
+            
+            if not self.model_loaded:
+                raise Exception("Model not loaded. Please check dependencies.")
+            
+            if not TORCH_AVAILABLE:
+                st.warning("⚠️ PyTorch not available - using fallback prediction mode")
+                # Return a more realistic fallback based on NHS board size
+                board_multipliers = {
+                    'Greater Glasgow and Clyde': 450, 'Lothian': 400, 'Lanarkshire': 300,
+                    'Grampian': 250, 'Tayside': 200, 'Ayrshire and Arran': 180,
+                    'Highland': 150, 'Fife': 170, 'Forth Valley': 130,
+                    'Dumfries and Galloway': 80, 'Borders': 60, 'Western Isles': 15,
+                    'Orkney': 12, 'Shetland': 14
+                }
+                fallback_prediction = board_multipliers.get(nhs_board, 100)
+                logging.warning(f"Using fallback prediction: {fallback_prediction}")
+                return fallback_prediction
             
             # Preprocess input
             features = self.preprocess_input(year, month, nhs_board)
@@ -290,21 +353,36 @@ class BirthPredictor:
             if self.model is None:
                 raise Exception("Model is not loaded. Please check the model file and loading process.")
             
+            # Debug feature values
+            if hasattr(features, 'data'):
+                logging.info(f"Features shape: {features.shape}")
+                if hasattr(features, 'numpy'):
+                    feature_values = features.data if hasattr(features, 'data') else features
+                    logging.info(f"Feature values: {feature_values}")
+            
             if TORCH_AVAILABLE and torch_module:
                 with torch_module.no_grad():
                     log_prediction = self.model(features).item()
+                    logging.info(f"Raw model output (log scale): {log_prediction}")
             else:
-                # Fallback prediction without torch
+                # This should not happen due to earlier check
                 log_prediction = self.model(features).item()
+                logging.info(f"Fallback model output: {log_prediction}")
             
             # Convert back from log scale
             prediction = np.expm1(log_prediction)  # Inverse of log1p
+            logging.info(f"Prediction after exp transformation: {prediction}")
             
-            logging.info(f"Prediction made: {prediction} births for {nhs_board} in {month}/{year}")
-            return max(0, int(round(prediction)))  # Ensure non-negative integer
+            final_prediction = max(0, int(round(prediction)))
+            logging.info(f"Final prediction: {final_prediction} births for {nhs_board} in {month}/{year}")
+            
+            return final_prediction
             
         except Exception as e:
             logging.error(f"Error making prediction: {str(e)}")
+            # Provide debug info to user
+            st.error(f"❌ Prediction error: {str(e)}")
+            st.info("Debug info: Check that all model files are properly loaded")
             raise CustomException(e, sys)
 
 # Initialize predictor
@@ -386,6 +464,17 @@ def main():
                 # Load predictor
                 predictor = get_predictor()
                 
+                # Show debug information
+                with st.expander("🔍 Debug Information", expanded=False):
+                    st.write(f"**PyTorch Available:** {TORCH_AVAILABLE}")
+                    st.write(f"**Custom Modules Available:** {CUSTOM_MODULES_AVAILABLE}")
+                    st.write(f"**Model Loaded:** {predictor.model_loaded}")
+                    st.write(f"**Environment:** {'Deployed' if is_deployed else 'Local'}")
+                    
+                    if predictor.model is not None:
+                        model_type = "Real LSTM Model" if not hasattr(predictor.model, 'is_dummy') else "Fallback/Dummy Model"
+                        st.write(f"**Model Type:** {model_type}")
+                
                 if predictor.model_loaded:
                     with st.spinner('🔄 Generating prediction...'):
                         # Make prediction
@@ -400,18 +489,32 @@ def main():
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        # Additional insights
-                        st.success(f"✅ Prediction generated successfully for {selected_nhs_board}")
+                        # Additional insights with debugging
+                        if TORCH_AVAILABLE and CUSTOM_MODULES_AVAILABLE:
+                            st.success(f"✅ Prediction generated successfully for {selected_nhs_board}")
+                        else:
+                            st.warning(f"⚠️ Prediction generated using fallback mode for {selected_nhs_board}")
+                            st.info("💡 For accurate predictions, ensure PyTorch and custom modules are properly installed")
                         
                         # Log the prediction
                         logging.info(f"UI Prediction: {prediction} births for {selected_nhs_board} in {selected_month_name} {selected_year}")
                         
                 else:
                     st.error("❌ Model not loaded. Please check if the trained model files exist.")
+                    st.info("💡 Try refreshing the page or check the deployment logs for errors.")
                     
             except Exception as e:
                 st.error(f"❌ Error generating prediction: {str(e)}")
                 logging.error(f"UI Error: {str(e)}")
+                
+                # Show detailed error info
+                with st.expander("🔧 Error Details", expanded=True):
+                    st.code(str(e))
+                    st.write("**Possible solutions:**")
+                    st.write("1. Check that all model files are present")
+                    st.write("2. Verify PyTorch installation")
+                    st.write("3. Ensure proper file permissions")
+                    st.write("4. Check deployment logs for missing dependencies")
     
     with tab2:
         st.markdown('<h2 class="sub-header">📊 Scotland Birth Rate Analytics Dashboard</h2>', unsafe_allow_html=True)
