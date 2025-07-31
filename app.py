@@ -25,14 +25,29 @@ except ImportError:
 
 # Import custom components with error handling
 try:
-
+    # Add current directory to Python path for deployment compatibility
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+    
     from src.components.model import StackedLSTM  # type: ignore
     from src.logger import logging
     from src.exception import CustomException
     CUSTOM_MODULES_AVAILABLE = True
 
-except ImportError as e:
+except (ImportError, KeyError, ModuleNotFoundError) as e:
     CUSTOM_MODULES_AVAILABLE = False
+    print(f"⚠️ Custom modules import failed: {e}")
+    print(f"📁 Current directory: {os.getcwd()}")
+    print(f"🔍 Python path: {sys.path[:3]}")  # Show first 3 entries
+    print(f"📂 Directory contents: {os.listdir('.')}")
+    if os.path.exists('src'):
+        print(f"✅ src/ directory exists: {os.listdir('src')}")
+    else:
+        print("❌ src/ directory not found")
+    
     # Create dummy logger and exception for fallback
     class DummyLogger:
         @staticmethod
