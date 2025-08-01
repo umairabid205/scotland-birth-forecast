@@ -20,11 +20,13 @@ def mse_with_diff_loss(y_pred, y_true, aux_weight=0.0):
 
     mse = nn.functional.mse_loss(y_pred, y_true)  # Standard MSE loss
     if aux_weight > 0:
-        diff_pred = y_pred[:, 1:] - y_pred[:, :-1]  # First differences of predictions
-        diff_true = y_true[:, 1:] - y_true[:, :-1]  # First differences of targets
-        diff_loss = nn.functional.mse_loss(diff_pred, diff_true)  # MSE on differences
-        return mse + aux_weight * diff_loss  # Weighted sum
-    return mse  # Just MSE if no auxiliary loss
+        # Why: Birth rates have smooth transitions (no sudden spikes)
+
+        diff_pred = y_pred[:, 1:] - y_pred[:, :-1]  # Calculates predicted month-to-month changes
+        diff_true = y_true[:, 1:] - y_true[:, :-1]  # Actual month-to-month changes
+        diff_loss = nn.functional.mse_loss(diff_pred, diff_true)  # Penalizes deviation from true trends
+        return mse + aux_weight * diff_loss  # Weighted total loss
+    return mse  # Just MSE if no auxiliary loss. Allows disabling trend penalty if needed
 
 
 
@@ -45,9 +47,12 @@ def train_model(model, train_loader, val_loader, epochs=100, lr=1e-3, aux_weight
     Returns:
         nn.Module: The trained model with best validation performance.
     """
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)  # Adam optimizer
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)  # LR scheduler
-    best_val_loss = float('inf')  # Track best validation loss
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)  # Adam optimizer: Efficient weight update algorithm
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)  # Reduces learning rate when validation loss stops improving. Helps escape local minima without manual tuning.
+
+
+
+    best_val_loss = float('inf')  # Track best validation loss, Initialize with worst possible loss, float('inf') creates a floating-point representation of positive infinity. 
     best_model = None  # Store best model weights
     patience_counter = 0  # Early stopping counter
     
@@ -56,30 +61,41 @@ def train_model(model, train_loader, val_loader, epochs=100, lr=1e-3, aux_weight
         train_losses = []  # Store training losses
 
         
-        for x_batch, y_batch in train_loader:  # Loop over training batches
+        # Loop over training batches
+        # Batches prevent memory overload
+        # Why: Essential for large birth-rate datasets
+
+        for x_batch, y_batch in train_loader:  # Loop over training batches, # Process data in batches
             x_batch, y_batch = x_batch.to(device), y_batch.to(device)  # Move to device
-            optimizer.zero_grad()  # Zero gradients
-            y_pred = model(x_batch)  # Forward pass
+            optimizer.zero_grad()  # # Reset accumulated gradients with Zero gradients
+            y_pred = model(x_batch)  # Forward pass(compute predictions)
             loss = mse_with_diff_loss(y_pred, y_batch, aux_weight)  # Compute loss
-            loss.backward()  # Backpropagation
+            loss.backward()  # Backpropagation(compute gradients)
             optimizer.step()  # Update weights
             train_losses.append(loss.item())  # Store loss
-        model.eval()  # Set model to evaluation mode
+
+
+        model.eval()  # Set model to evaluation mode, 
         val_losses = []  # Store validation losses
-        with torch.no_grad():  # No gradient computation
+        with torch.no_grad():  # Disable gradient calculation
             
 
             for x_val, y_val in val_loader:  # Loop over validation batches
+                # Why: Get unbiased performance estimate
                 x_val, y_val = x_val.to(device), y_val.to(device)  # Move to device
-                y_pred = model(x_val)  # Forward pass
+                y_pred = model(x_val)  # Forward pass(Compute predictions)
                 val_loss = mse_with_diff_loss(y_pred, y_val, aux_weight)  # Compute loss
                 val_losses.append(val_loss.item())  # Store loss
+
+
+        # Why: Monitor convergence and detect overfitting
         avg_train_loss = np.mean(train_losses)  # Average training loss
         avg_val_loss = np.mean(val_losses)  # Average validation loss
         scheduler.step(avg_val_loss)  # Step LR scheduler
         print(f"Epoch {epoch+1}: Train Loss={avg_train_loss:.4f}, Val Loss={avg_val_loss:.4f}")  # Print progress
 
-        
+
+        # Why: Prevents overfitting when validation loss plateaus
         if avg_val_loss < best_val_loss:  # If validation improves
             best_val_loss = avg_val_loss  # Update best loss
             best_model = model.state_dict()  # Save model weights
@@ -92,8 +108,9 @@ def train_model(model, train_loader, val_loader, epochs=100, lr=1e-3, aux_weight
             
     
     if best_model is not None:
-        model.load_state_dict(best_model)  # Restore best model
+        model.load_state_dict(best_model)  # Restore best model, Restore best weights
     return model  # Return trained model
+
 
 #  usage (not run):
 # from temporal_models import TemporalConvNet, TimeSeriesTransformer  # Import models

@@ -8,11 +8,19 @@ import os
 import warnings
 from typing import Any, Union
 
+
+
+
+
 # Suppress sklearn version warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
 
 # Add the project root to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+
+
+
 
 # Import PyTorch with error handling for deployment
 try:
@@ -22,6 +30,8 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
     torch_module = None
+
+
 
 # Import custom components with error handling
 try:
@@ -48,6 +58,10 @@ except (ImportError, KeyError, ModuleNotFoundError) as e:
     else:
         print("❌ src/ directory not found")
     
+
+
+
+
     # Create dummy logger and exception for fallback
     class DummyLogger:
         @staticmethod
@@ -59,6 +73,9 @@ except (ImportError, KeyError, ModuleNotFoundError) as e:
 
     logging = DummyLogger()
     CustomException = Exception
+
+
+
 
 
 
@@ -80,6 +97,10 @@ except (ImportError, KeyError, ModuleNotFoundError) as e:
             return DummyResult()
 
 
+
+
+
+
 # Configure Streamlit page
 st.set_page_config(
     page_title="Scotland Birth Forecast",
@@ -87,6 +108,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+
+
 
 # Custom CSS for better styling
 st.markdown("""
@@ -125,17 +149,25 @@ st.markdown("""
 
 
 
+
+
 class BirthPredictor:
     """Class to handle birth prediction using a trained model and preprocessing components."""
+   
+   
     def __init__(self):
+        """Initialize the predictor with default values."""
         self.model = None
         self.scaler = None
         self.nhs_board_mapping = {}
         self.model_loaded = False
         
+
     def load_model_and_scaler(self):
         """Load the trained model and preprocessing components"""
         try:
+
+
             # Debug logging for deployment
             logging.info(f"TORCH_AVAILABLE: {TORCH_AVAILABLE}")
             logging.info(f"CUSTOM_MODULES_AVAILABLE: {CUSTOM_MODULES_AVAILABLE}")
@@ -268,12 +300,16 @@ class BirthPredictor:
                 self.nhs_board_mapping = self._get_default_mapping()
                 
             self.model_loaded = True
-            return True
-            
+            return True    
         except Exception as e:
             logging.error(f"Error loading model components: {str(e)}")
             st.error(f"Error loading model: {str(e)}")
             return False
+        
+
+
+
+
     
     def _get_default_mapping(self):
         """Get default NHS Board mapping"""
@@ -283,6 +319,10 @@ class BirthPredictor:
             'Highland': 7, 'Lanarkshire': 8, 'Lothian': 9, 'Orkney': 10,
             'Shetland': 11, 'Tayside': 12, 'Western Isles': 13
         }
+    
+
+
+
     
     def preprocess_input(self, year, month, nhs_board):
         """Preprocess user input into model-ready format"""
@@ -363,6 +403,11 @@ class BirthPredictor:
             logging.error(f"Error in preprocessing: {str(e)}")
             raise CustomException(e, sys)
     
+
+
+
+
+
     def predict(self, year, month, nhs_board):
         """Make prediction for given inputs"""
         try:
@@ -428,12 +473,16 @@ class BirthPredictor:
             st.info("Debug info: Check that all model files are properly loaded")
             raise CustomException(e, sys)
 
+
+
+
 # Initialize predictor
 @st.cache_resource
 def get_predictor():
     predictor = BirthPredictor()
     predictor.load_model_and_scaler()
     return predictor
+
 
 def main():
     # Check deployment environment
@@ -501,6 +550,8 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
+
+
         # Prediction button
         if st.button("🚀 Generate Prediction", type="primary"):
             try:
@@ -571,6 +622,10 @@ def main():
                     st.write("2. Verify PyTorch installation")
                     st.write("3. Ensure proper file permissions")
                     st.write("4. Check deployment logs for missing dependencies")
+
+
+
+
     
     with tab2:
         st.markdown('<h2 class="sub-header">📊 Scotland Birth Rate Analytics Dashboard</h2>', unsafe_allow_html=True)
@@ -596,6 +651,7 @@ def main():
             </iframe>
         </div>
         """
+        
         
         st.markdown(tableau_embed_code, unsafe_allow_html=True)
         

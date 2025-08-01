@@ -75,11 +75,11 @@ def integrated_gradients(model, input_seq, baseline=None, target_idx=0, steps=50
 
 
 
-# Saliency map for LSTM/GRU
+# Saliency map for LSTM
 
 def saliency_map(model, input_seq, target_idx=0, device='cpu'):
     """
-    Compute saliency map for a sequence model (LSTM/GRU).
+    Compute saliency map for a sequence model (LSTM).
     Args:
         model: PyTorch model
         input_seq: torch.Tensor of shape (1, seq_len, features)

@@ -27,7 +27,7 @@ class StackedLSTM(nn.Module):
     """
 
 
-    def __init__(self, input_size, hidden_size, num_layers, dropout=0.2):
+    def __init__(self, input_size, hidden_size, num_layers, dropout=0.2): # dropout: randomly display some units during training to prevent overfitting
         """
         Initialize the Stacked LSTM model.
         
@@ -67,7 +67,8 @@ class StackedLSTM(nn.Module):
         
         # Create the final linear layer for regression output
         # Maps from hidden_size to 1 output (birth count prediction)
-        self.fc = nn.Linear(hidden_size, 1)
+        self.fc = nn.Linear(hidden_size, 1)  #  Final layer converting LSTM outputs to a single prediction.
+
         
         # Log successful model creation
         total_params = sum(p.numel() for p in self.parameters())
@@ -77,7 +78,10 @@ class StackedLSTM(nn.Module):
 
     def forward(self, x):
         """
+
         Forward pass through the network.
+        Defines how input data flows through the model.
+        PyTorch automatically calls this during training/prediction.
         
         Args:
             x (torch.Tensor): Input tensor of shape (batch_size, sequence_length, input_size)
@@ -111,12 +115,14 @@ class StackedLSTM(nn.Module):
         # - -1: (last time step in sequence)
         # - : (all hidden features)
         # This gives us shape (batch_size, hidden_size)
-        last_output = lstm_out[:, -1, :]
+        last_output = lstm_out[:, -1, :] # For birth-rate prediction, the last step contains the most relevant info for forecasting.
+
+
         logger.debug(f"Last time step output shape: {last_output.shape}")
         
         # Pass through final linear layer to get prediction
         # Maps from hidden_size dimensions to 1 output value
-        y = self.fc(last_output)
+        y = self.fc(last_output) # Converts LSTM outputs to a predicted birth count.
         
         # Log final output information
         logger.debug(f"Final output shape: {y.shape}")
@@ -126,4 +132,4 @@ class StackedLSTM(nn.Module):
         return y
 
 # Export the model class for use in other modules
-__all__ = ["StackedLSTM"]
+__all__ = ["StackedLSTM"] # Specifies which class to expose if imported from another file.
