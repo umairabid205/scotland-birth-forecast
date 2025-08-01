@@ -2,6 +2,9 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+
+
 # Attention visualization for Transformer
 
 def visualize_attention_weights(model, input_seq, layer_idx=0, head_idx=0, device='cpu'):
@@ -35,6 +38,9 @@ def visualize_attention_weights(model, input_seq, layer_idx=0, head_idx=0, devic
         plt.title(f'Attention Weights (Layer {layer_idx}, Head {head_idx})')
         plt.show()
 
+
+
+
 # Integrated Gradients for LSTM/GRU
 
 def integrated_gradients(model, input_seq, baseline=None, target_idx=0, steps=50, device='cpu'):
@@ -66,6 +72,8 @@ def integrated_gradients(model, input_seq, baseline=None, target_idx=0, steps=50
     avg_grads = np.mean(grads, axis=0)
     attributions = (input_seq.cpu().numpy() - baseline.cpu().numpy()) * avg_grads
     return attributions
+
+
 
 # Saliency map for LSTM/GRU
 

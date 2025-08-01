@@ -516,8 +516,7 @@ def main():
                     st.write(f"**Python Version:** {sys.version}")
                     
                     if predictor.model is not None:
-                        model_type = "Real LSTM Model" if not hasattr(predictor.model, 'is_dummy') else "Fallback/Dummy Model"
-                        st.write(f"**Model Type:** {model_type}")
+                        st.write(f"**Model Status:** {'Loaded' if predictor.model_loaded else 'Not Loaded'}")
                     
                     # Add scaler debug info
                     if predictor.scaler is not None:

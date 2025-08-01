@@ -17,6 +17,12 @@ from src.exception import CustomException
 
 logging.info("Starting birth forecast pipeline...")
 
+
+
+
+
+
+
 # Load data
 try:
     logging.info("Loading training, validation, and test data...")
@@ -28,9 +34,14 @@ except Exception as e:
     logging.error("Error loading data files")
     raise CustomException(e, sys)
 
+
+
+
+
 # Add lag features for better temporal modeling
 def add_lag_features(df, target_col='Births registered', lags=[1, 2, 3]):
     """Add lag features and rolling statistics with proper handling"""
+    
     try:
         logging.info(f"Adding lag features for target column: {target_col}")
         df = df.copy()
@@ -65,6 +76,10 @@ def add_lag_features(df, target_col='Births registered', lags=[1, 2, 3]):
     except Exception as e:
         logging.error("Error adding lag features")
         raise CustomException(e, sys)
+    
+
+
+
 
 # Apply lag features to all datasets
 try:
@@ -77,6 +92,9 @@ try:
 except Exception as e:
     logging.error("Error applying lag features to datasets")
     raise CustomException(e, sys)
+
+
+
 
 
 # Normalize features to improve training stability
@@ -113,6 +131,8 @@ def normalize_features(train_df, val_df, test_df, target_col='Births registered'
 
 
 
+
+
 try:
     logging.info("Normalizing features...")
     print("Normalizing features...")
@@ -121,6 +141,9 @@ try:
 except Exception as e:
     logging.error("Error during feature normalization process")
     raise CustomException(e, sys)
+
+
+
 
 
 
@@ -141,6 +164,11 @@ def df_to_tensor(df):
     except Exception as e:
         logging.error("Error converting DataFrame to tensors")
         raise CustomException(e, sys)
+    
+
+
+
+
 
 try:
     logging.info("Converting all datasets to tensors...")
@@ -160,6 +188,10 @@ try:
 except Exception as e:
     logging.error("Error during tensor conversion process")
     raise CustomException(e, sys)
+
+
+
+
 
 
 # Create DataLoaders
@@ -193,6 +225,11 @@ except Exception as e:
     raise CustomException(e, sys)
 
 
+
+
+
+
+
 # Evaluate
 try:
 
@@ -213,6 +250,10 @@ try:
 except Exception as e:
     logging.error("Error during model evaluation")
     raise CustomException(e, sys)
+
+
+
+
 
 
 
@@ -249,6 +290,8 @@ try:
 except Exception as e:
     logging.error("Error during interpretability analysis")
     raise CustomException(e, sys)
+
+
 
 
 

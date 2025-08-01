@@ -2,6 +2,13 @@ import numpy as np  # For numerical operations
 from sklearn.metrics import mean_absolute_error, mean_squared_error  # For MAE and RMSE
 import torch  # For PyTorch operations
 
+
+
+
+
+
+
+
 def smape(y_true, y_pred):
     """Symmetric Mean Absolute Percentage Error"""
     y_true, y_pred = np.array(y_true), np.array(y_pred)  # Convert to numpy arrays
@@ -10,6 +17,10 @@ def smape(y_true, y_pred):
     diff[denominator == 0] = 0.0  # Avoid division by zero
     return 100 * np.mean(diff)  # Return as percentage
 
+
+
+
+
 # Evaluation metrics: MAE, RMSE, SMAPE
 def evaluate_forecast(y_true, y_pred):
     """ Evaluate forecast performance using MAE, RMSE, and SMAPE."""
@@ -17,6 +28,10 @@ def evaluate_forecast(y_true, y_pred):
     rmse = np.sqrt(mean_squared_error(y_true, y_pred))  # Root Mean Squared Error
     smape_val = smape(y_true, y_pred)  # Symmetric Mean Absolute Percentage Error
     return {'MAE': mae, 'RMSE': rmse, 'SMAPE': smape_val}  # Return as dict
+
+
+
+
 
 # Forecast horizon analysis: multi-step ahead
 def forecast_horizon_analysis(model, data_loader, horizons=[1, 3, 6, 12], device='cpu'):
@@ -38,10 +53,13 @@ def forecast_horizon_analysis(model, data_loader, horizons=[1, 3, 6, 12], device
             results[horizon] = metrics  # Store metrics
     return results  # Return all results
 
+
+
+
+
 # Diebold-Mariano test for forecast comparison
 def diebold_mariano_test(e1, e2, h=1):
     """e1, e2: forecast errors from two models (arrays), h: forecast horizon"""
-    from statsmodels.stats.diagnostic import acorr_ljungbox  # For autocorrelation (not used here)
     d = e1 - e2  # Difference in errors
     mean_d = np.mean(d)  # Mean difference
     n = len(d)  # Number of samples
@@ -52,7 +70,6 @@ def diebold_mariano_test(e1, e2, h=1):
     p_value = 2 * (1 - norm.cdf(np.abs(dm_stat)))  # Two-sided p-value
     return dm_stat, p_value  # Return statistic and p-value
 
-# Example usage (not run):
 # y_true, y_pred = ...  # True and predicted values
 # print(evaluate_forecast(y_true, y_pred))  # Print metrics
 # e1, e2 = model1_errors, model2_errors  # Errors from two models
