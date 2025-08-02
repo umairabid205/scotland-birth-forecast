@@ -21,7 +21,8 @@ import warnings
 from typing import Dict, List, Tuple, Optional, Union
 
 # Add project root to path
-project_root = '/Users/umair/Downloads/projects/project_1'
+current_file_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(current_file_dir))
 sys.path.append(project_root)
 
 # Import XGBoost with graceful fallback
@@ -63,14 +64,20 @@ class NHSBirthPredictor:
     - Model validation and fallback
     """
     
-    def __init__(self, model_dir: str = None):
+    def __init__(self, model_dir: Optional[str] = None):
         """
         Initialize the predictor with saved models
         
         Args:
             model_dir: Directory containing saved models (default: models/)
         """
-        self.model_dir = model_dir or '/Users/umair/Downloads/projects/project_1/models'
+        if model_dir is None:
+            # Get the directory of this script and go up to project root
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(os.path.dirname(current_dir))
+            self.model_dir = os.path.join(project_root, 'models')
+        else:
+            self.model_dir = model_dir
         self.models = {}
         self.feature_names = None
         self.nhs_board_mapping = {}
