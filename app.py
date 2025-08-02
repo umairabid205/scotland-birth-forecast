@@ -14,14 +14,10 @@ warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
 # Add the project root to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# Import PyTorch with error handling for deployment
-try:
-    import torch
-    TORCH_AVAILABLE = True
-    torch_module = torch
-except ImportError:
-    TORCH_AVAILABLE = False
-    torch_module = None
+# Note: PyTorch import removed to prevent segmentation fault in Streamlit
+# LSTM model information is displayed in UI but PyTorch is not imported
+TORCH_AVAILABLE = False
+torch_module = None
 
 # Import custom components with error handling
 try:
