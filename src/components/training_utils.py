@@ -33,7 +33,7 @@ def mse_with_diff_loss(y_pred, y_true, aux_weight=0.0):
 
 
 # Training loop with early stopping and learning rate scheduling
-def train_model(model, train_loader, val_loader, epochs=100, lr=1e-3, aux_weight=0.0, patience=10, device='cpu'):
+def train_model(model, train_loader, val_loader, epochs=100, lr=1e-4, aux_weight=0.3, patience=10, device='cpu'):
     """This function trains the model with early stopping and learning rate scheduling.
     Args:
         model (nn.Module): The PyTorch model to train.

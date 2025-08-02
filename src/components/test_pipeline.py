@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import random
 import sys
+import pickle
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
@@ -123,8 +124,18 @@ def normalize_features(train_df, val_df, test_df, target_col='Births registered'
         test_scaled = pd.DataFrame(test_features_scaled, columns=feature_cols, index=test_df.index)
         test_scaled[target_col] = test_df[target_col]
         
+        # Save the scaler for later use
+        try:
+            logging.info("Saving feature scaler...")
+            with open('/Users/umair/Downloads/projects/project_1/models/feature_scaler.pkl', 'wb') as f:
+                pickle.dump(scaler, f)
+            logging.info("Feature scaler saved successfully")
+        except Exception as e:
+            logging.error("Error saving feature scaler")
+            raise CustomException(e, sys)
+        
         logging.info("Normalized dataframes created successfully")
-        return train_scaled, val_scaled, test_scaled
+        return train_scaled, val_scaled, test_scaled, scaler
     except Exception as e:
         logging.error("Error during feature normalization")
         raise CustomException(e, sys)
@@ -136,8 +147,21 @@ def normalize_features(train_df, val_df, test_df, target_col='Births registered'
 try:
     logging.info("Normalizing features...")
     print("Normalizing features...")
-    train_df, val_df, test_df = normalize_features(train_df, val_df, test_df)
+    train_df, val_df, test_df, scaler = normalize_features(train_df, val_df, test_df)
     logging.info("Feature normalization completed successfully")
+    
+    # Save NHS Board mapping after normalization
+    try:
+        logging.info("Saving NHS Board mapping...")
+        # Create mapping from the data (before any potential modifications)
+        nhs_board_mapping = dict(enumerate(train_df['NHS_Board_area_code'].unique()))
+        with open('/Users/umair/Downloads/projects/project_1/models/nhs_board_mapping.pkl', 'wb') as f:
+            pickle.dump(nhs_board_mapping, f)
+        logging.info("NHS Board mapping saved successfully")
+    except Exception as e:
+        logging.error("Error saving NHS Board mapping")
+        raise CustomException(e, sys)
+    
 except Exception as e:
     logging.error("Error during feature normalization process")
     raise CustomException(e, sys)
@@ -215,7 +239,7 @@ try:
     
     # Train model with optimized parameters
     logging.info("Starting model training...")
-    model = train_model(model, train_loader, val_loader, epochs=200, lr=1e-3, device='cpu')
+    model = train_model(model, train_loader, val_loader, epochs=200, lr=1e-4, aux_weight=0.0, device='cpu')
     logging.info("Model training completed successfully")
 
 
@@ -327,11 +351,18 @@ try:
     print(f"Baseline MAE: {baseline_mae:.4f} | LSTM MAE: {metrics['MAE']:.4f}")
     print(f"Baseline RMSE: {baseline_rmse:.4f} | LSTM RMSE: {metrics['RMSE']:.4f}")
     
-
-    
     logging.info("Pipeline execution completed successfully")
 except Exception as e:
     logging.error("Error during baseline model comparison")
+    raise CustomException(e, sys)
+
+# Save the trained model
+try:
+    logging.info("Saving trained model...")
+    torch.save(model.state_dict(), '/Users/umair/Downloads/projects/project_1/models/trained_lstm_model.pth')
+    logging.info("Model saved successfully")
+except Exception as e:
+    logging.error("Error saving model")
     raise CustomException(e, sys)
 
 # All files are imported and communicate with each other in this pipeline.
