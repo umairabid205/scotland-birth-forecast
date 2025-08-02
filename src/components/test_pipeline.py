@@ -3,11 +3,17 @@ import pandas as pd
 import numpy as np
 import random
 import sys
+import os
 import pickle
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from torch.utils.data import DataLoader, TensorDataset
+
+# Add project root to path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(current_dir))
+sys.path.append(project_root)
 
 from src.components.model import StackedLSTM
 from src.components.training_utils import train_model
