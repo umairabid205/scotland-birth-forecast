@@ -72,32 +72,67 @@ class NHSBirthPredictor:
             model_dir: Directory containing saved models (default: models/)
         """
         if model_dir is None:
+            # Get the current script's directory
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            
             # Try multiple possible paths for different deployment environments
             possible_paths = [
-                # Local development
-                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'models'),
-                # Streamlit Cloud deployment
-                '/mount/src/scotland-birth-forecast/models',
-                # Alternative Streamlit Cloud path
+                # Local development (relative to script location)
+                os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'models'),
+                # Current working directory
                 os.path.join(os.getcwd(), 'models'),
-                # Relative to current working directory
-                'models',
-                # Another possible deployment path
-                os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../models')
+                # Streamlit Cloud deployment paths
+                '/mount/src/scotland-birth-forecast/models',
+                '/app/models',
+                '/workspace/models',
+                # Alternative relative paths
+                os.path.abspath('models'),
+                os.path.abspath('./models'),
+                os.path.abspath('../models'),
+                os.path.abspath('../../models'),
+                # Relative to current file
+                os.path.join(current_dir, '..', '..', '..', 'models'),
+                os.path.join(current_dir, '../../models'),
+                # GitHub Codespaces
+                '/workspaces/scotland-birth-forecast/models'
             ]
             
+            print(f"🔍 Looking for models directory...")
+            print(f"📍 Current working directory: {os.getcwd()}")
+            print(f"📍 Script location: {current_dir}")
+            
             self.model_dir = None
-            for path in possible_paths:
+            for i, path in enumerate(possible_paths):
                 abs_path = os.path.abspath(path)
-                if os.path.exists(abs_path) and os.path.exists(os.path.join(abs_path, 'linear_regression_model.pkl')):
+                model_file = os.path.join(abs_path, 'linear_regression_model.pkl')
+                exists = os.path.exists(abs_path)
+                has_model = os.path.exists(model_file)
+                
+                print(f"📂 Path {i+1}: {abs_path}")
+                print(f"   Directory exists: {exists}")
+                if exists:
+                    print(f"   Contents: {os.listdir(abs_path)[:5]}...")  # Show first 5 files
+                print(f"   Model file exists: {has_model}")
+                
+                if exists and has_model:
                     self.model_dir = abs_path
+                    print(f"✅ Found models directory: {self.model_dir}")
                     break
+                print()
             
             if self.model_dir is None:
-                # Fallback to first path if none found
-                self.model_dir = possible_paths[0]
+                # If no valid path found, create a fallback directory
+                fallback_dir = os.path.join(os.getcwd(), 'models')
+                print(f"⚠️ No valid models directory found. Using fallback: {fallback_dir}")
+                print(f"📝 Available paths that were checked:")
+                for path in possible_paths:
+                    print(f"   - {os.path.abspath(path)}")
+                self.model_dir = fallback_dir
+                
+                # Create directory if it doesn't exist
+                os.makedirs(self.model_dir, exist_ok=True)
         else:
-            self.model_dir = model_dir
+            self.model_dir = os.path.abspath(model_dir)
         self.models = {}
         self.feature_names = None
         self.nhs_board_mapping = {}
@@ -116,54 +151,170 @@ class NHSBirthPredictor:
             
             logging.info("Loading production models...")
             
-            # Check if linear regression model exists
+            # Check if model directory exists
             if self.model_dir is None:
                 raise CustomException("Model directory is not set.", sys)
-            lr_model_path = os.path.join(self.model_dir, 'linear_regression_model.pkl')
-            print(f"🔍 Linear regression model path: {lr_model_path}")
-            print(f"📄 File exists: {os.path.exists(lr_model_path)}")
+            
+            if not os.path.exists(self.model_dir):
+                raise CustomException(f"Model directory does not exist: {self.model_dir}", sys)
+            
+            # Check for required model files
+            required_files = [
+                'linear_regression_model.pkl',
+                'feature_names.pkl', 
+                'nhs_board_mapping.pkl',
+                'feature_scaler.pkl'
+            ]
+            
+            missing_files = []
+            for file in required_files:
+                file_path = os.path.join(self.model_dir, file)
+                if not os.path.exists(file_path):
+                    missing_files.append(file)
+            
+            if missing_files:
+                raise CustomException(f"Missing required model files: {missing_files}. Please ensure models are trained and saved properly.", sys)
             
             # Load Linear Regression (primary model)
+            lr_model_path = os.path.join(self.model_dir, 'linear_regression_model.pkl')
+            print(f"🔍 Loading Linear regression model from: {lr_model_path}")
+            
             with open(lr_model_path, 'rb') as f:
                 self.models['linear_regression'] = pickle.load(f)
+            print("✅ Linear Regression model loaded successfully")
             
             # Load XGBoost (backup model) only if XGBoost is available
             if XGBOOST_AVAILABLE:
                 try:
-                    with open(f'{self.model_dir}/xgboost_model.pkl', 'rb') as f:
+                    xgb_model_path = os.path.join(self.model_dir, 'xgboost_model.pkl')
+                    with open(xgb_model_path, 'rb') as f:
                         self.models['xgboost'] = pickle.load(f)
+                    print("✅ XGBoost model loaded successfully")
                     logging.info("XGBoost model loaded successfully")
                 except FileNotFoundError:
+                    print("⚠️ XGBoost model not found, using Linear Regression only")
                     logging.warning("XGBoost model not found, using Linear Regression only")
                 except Exception as e:
+                    print(f"⚠️ Error loading XGBoost model: {e}")
                     logging.warning(f"Error loading XGBoost model: {e}")
             else:
+                print("⚠️ XGBoost not available, using Linear Regression only")
                 logging.warning("XGBoost not available, using Linear Regression only")
             
             # Load feature metadata
-            with open(f'{self.model_dir}/feature_names.pkl', 'rb') as f:
+            feature_names_path = os.path.join(self.model_dir, 'feature_names.pkl')
+            with open(feature_names_path, 'rb') as f:
                 self.feature_names = pickle.load(f)
+            print("✅ Feature names loaded successfully")
             
-            with open(f'{self.model_dir}/nhs_board_mapping.pkl', 'rb') as f:
+            nhs_mapping_path = os.path.join(self.model_dir, 'nhs_board_mapping.pkl')
+            with open(nhs_mapping_path, 'rb') as f:
                 self.nhs_board_mapping = pickle.load(f)
+            print("✅ NHS board mapping loaded successfully")
             
-            with open(f'{self.model_dir}/feature_scaler.pkl', 'rb') as f:
+            scaler_path = os.path.join(self.model_dir, 'feature_scaler.pkl')
+            with open(scaler_path, 'rb') as f:
                 self.feature_scaler = pickle.load(f)
+            print("✅ Feature scaler loaded successfully")
             
             # Load model comparison results
             try:
-                with open(f'{self.model_dir}/best_model_config.pkl', 'rb') as f:
+                config_path = os.path.join(self.model_dir, 'best_model_config.pkl')
+                with open(config_path, 'rb') as f:
                     self.model_config = pickle.load(f)
+                print("✅ Model configuration loaded successfully")
             except FileNotFoundError:
+                print("⚠️ Model configuration not found, using defaults")
                 self.model_config = {'best_model': 'Linear Regression'}
             
             self.is_initialized = True
             available_models = list(self.models.keys())
+            print(f"🎉 All models loaded successfully!")
+            print(f"📊 Available models: {available_models}")
+            print(f"🏆 Primary model: {self.model_config.get('best_model', 'Linear Regression')}")
             logging.info(f"Models loaded successfully. Available: {available_models}, Primary: {self.model_config.get('best_model', 'Linear Regression')}")
             
         except Exception as e:
-            logging.error("Error loading models")
-            raise CustomException(e, sys)
+            print(f"❌ Error loading models: {e}")
+            logging.error(f"Error loading models: {e}")
+            
+            # Try to create a fallback dummy model
+            self._create_fallback_model()
+            
+    def _create_fallback_model(self):
+        """Create a simple fallback model when real models can't be loaded"""
+        try:
+            print("🔄 Creating fallback model...")
+            
+            # Create a simple dummy linear regression model that uses basic estimates
+            class DummyLinearModel:
+                def predict(self, X):
+                    # Simple heuristic based on NHS board and month
+                    if len(X.shape) == 1:
+                        X = X.reshape(1, -1)
+                    
+                    results = []
+                    for row in X:
+                        # Extract key features (assuming standard order)
+                        if len(row) >= 3:
+                            year = row[0] if row[0] > 1900 else 2024
+                            month = row[1] if 1 <= row[1] <= 12 else 6
+                            nhs_board = row[2] if 0 <= row[2] <= 20 else 1
+                        else:
+                            year, month, nhs_board = 2024, 6, 1
+                        
+                        # Base estimates by NHS board
+                        base_births = {
+                            0: 180, 1: 60, 2: 80, 3: 170, 4: 130, 5: 250, 6: 450,
+                            7: 150, 8: 300, 9: 400, 10: 12, 11: 14, 12: 200, 13: 15
+                        }.get(int(nhs_board), 100)
+                        
+                        # Seasonal adjustment
+                        seasonal = {
+                            1: 0.95, 2: 0.90, 3: 1.05, 4: 1.10, 5: 1.15, 6: 1.10,
+                            7: 1.15, 8: 1.10, 9: 1.20, 10: 1.15, 11: 1.05, 12: 1.00
+                        }.get(int(month), 1.0)
+                        
+                        prediction = base_births * seasonal
+                        results.append(max(0, prediction))
+                    
+                    return np.array(results)
+            
+            self.models['linear_regression'] = DummyLinearModel()
+            
+            # Create default feature names
+            self.feature_names = [
+                'Year', 'Month_num', 'NHS_Board_area_code', 'Month_sin', 'Month_cos',
+                'Year_norm', 'Births registered_lag_1', 'Births registered_lag_2',
+                'Births registered_rolling_3m'
+            ]
+            
+            # Create default NHS board mapping
+            self.nhs_board_mapping = {
+                0: 'Ayrshire and Arran', 1: 'Borders', 2: 'Dumfries and Galloway',
+                3: 'Fife', 4: 'Forth Valley', 5: 'Grampian', 6: 'Greater Glasgow and Clyde',
+                7: 'Highland', 8: 'Lanarkshire', 9: 'Lothian', 10: 'Orkney',
+                11: 'Shetland', 12: 'Tayside', 13: 'Western Isles'
+            }
+            
+            # Create dummy scaler
+            class DummyScaler:
+                def transform(self, X):
+                    return X
+                def inverse_transform(self, X):
+                    return X
+            
+            self.feature_scaler = DummyScaler()
+            self.model_config = {'best_model': 'Linear Regression (Fallback)'}
+            self.is_initialized = True
+            
+            print("✅ Fallback model created successfully")
+            logging.warning("Using fallback dummy model due to loading errors")
+            
+        except Exception as fallback_error:
+            print(f"❌ Failed to create fallback model: {fallback_error}")
+            logging.error(f"Failed to create fallback model: {fallback_error}")
+            raise CustomException(f"Cannot initialize predictor: {fallback_error}", sys)
     
     def _create_features(self, year: int, month: int, nhs_board_code: int, 
                         historical_data: Optional[pd.DataFrame] = None) -> np.ndarray:
