@@ -72,10 +72,30 @@ class NHSBirthPredictor:
             model_dir: Directory containing saved models (default: models/)
         """
         if model_dir is None:
-            # Get the directory of this script and go up to project root
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            project_root = os.path.dirname(os.path.dirname(current_dir))
-            self.model_dir = os.path.join(project_root, 'models')
+            # Try multiple possible paths for different deployment environments
+            possible_paths = [
+                # Local development
+                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'models'),
+                # Streamlit Cloud deployment
+                '/mount/src/scotland-birth-forecast/models',
+                # Alternative Streamlit Cloud path
+                os.path.join(os.getcwd(), 'models'),
+                # Relative to current working directory
+                'models',
+                # Another possible deployment path
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../models')
+            ]
+            
+            self.model_dir = None
+            for path in possible_paths:
+                abs_path = os.path.abspath(path)
+                if os.path.exists(abs_path) and os.path.exists(os.path.join(abs_path, 'linear_regression_model.pkl')):
+                    self.model_dir = abs_path
+                    break
+            
+            if self.model_dir is None:
+                # Fallback to first path if none found
+                self.model_dir = possible_paths[0]
         else:
             self.model_dir = model_dir
         self.models = {}
@@ -89,10 +109,20 @@ class NHSBirthPredictor:
     def _load_models(self):
         """Load all saved models and metadata"""
         try:
+            print(f"🔍 Attempting to load models from: {self.model_dir}")
+            print(f"📁 Model directory exists: {os.path.exists(self.model_dir)}")
+            if os.path.exists(self.model_dir):
+                print(f"📂 Contents: {os.listdir(self.model_dir)}")
+            
             logging.info("Loading production models...")
             
+            # Check if linear regression model exists
+            lr_model_path = os.path.join(self.model_dir, 'linear_regression_model.pkl')
+            print(f"🔍 Linear regression model path: {lr_model_path}")
+            print(f"📄 File exists: {os.path.exists(lr_model_path)}")
+            
             # Load Linear Regression (primary model)
-            with open(f'{self.model_dir}/linear_regression_model.pkl', 'rb') as f:
+            with open(lr_model_path, 'rb') as f:
                 self.models['linear_regression'] = pickle.load(f)
             
             # Load XGBoost (backup model) only if XGBoost is available

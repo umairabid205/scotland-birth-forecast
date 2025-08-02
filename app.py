@@ -153,15 +153,44 @@ class BirthPredictor:
                 return True
                 
             # Load the real production predictor
-            self.predictor = NHSBirthPredictor()
-            
-            if self.predictor.is_initialized:
+            try:
+                self.predictor = NHSBirthPredictor()
+                
+                if self.predictor.is_initialized:
+                    self.model_loaded = True
+                    logging.info("✅ Production model loaded successfully")
+                    return True
+                else:
+                    logging.error("❌ Failed to initialize production predictor")
+                    # Fall back to dummy predictor
+                    st.warning("⚠️ Production models not available. Using fallback prediction mode.")
+                    self.predictor = NHSBirthPredictor()  # This will be the dummy class from fallback
+                    self.model_loaded = True
+                    return True
+            except Exception as model_error:
+                logging.error(f"❌ Production model error: {str(model_error)}")
+                st.warning("⚠️ Production models failed to load. Using fallback prediction mode.")
+                # Use the dummy class from the fallback section
+                class FallbackNHSBirthPredictor:
+                    def __init__(self, *args, **kwargs):
+                        self.is_dummy = True
+                        self.is_initialized = True
+                        
+                    def predict(self, year, month, nhs_board_code):
+                        board_multipliers = {
+                            0: 450, 1: 60, 2: 80, 3: 170, 4: 130, 5: 250, 6: 450,
+                            7: 150, 8: 300, 9: 400, 10: 12, 11: 14, 12: 200, 13: 15
+                        }
+                        fallback_prediction = board_multipliers.get(nhs_board_code, 100)
+                        return {
+                            'prediction': fallback_prediction,
+                            'model_used': 'Fallback (Models Failed to Load)',
+                            'confidence': 'Low'
+                        }
+                
+                self.predictor = FallbackNHSBirthPredictor()
                 self.model_loaded = True
-                logging.info("✅ Production model loaded successfully")
                 return True
-            else:
-                logging.error("❌ Failed to initialize production predictor")
-                return False
                 
         except Exception as e:
             logging.error(f"Error loading model components: {str(e)}")
@@ -192,24 +221,29 @@ class BirthPredictor:
                 return fallback_prediction
             
             # Make prediction using production model
-            result = self.predictor.predict(
-                year=year, 
-                month=month, 
-                nhs_board_code=nhs_board_code
-            )
-            
-            prediction = result['prediction']
-            model_used = result['model_used']
-            confidence = result['confidence']
-            
-            # Store additional info for display
-            self.last_prediction_info = {
-                'model_used': model_used,
-                'confidence': confidence,
-                'nhs_board_name': result.get('nhs_board_name', nhs_board)
-            }
-            
-            return int(round(prediction))
+            if self.predictor is not None:
+                result = self.predictor.predict(
+                    year=year, 
+                    month=month, 
+                    nhs_board_code=nhs_board_code
+                )
+                
+                prediction = result['prediction']
+                model_used = result['model_used']
+                confidence = result['confidence']
+                
+                # Store additional info for display
+                self.last_prediction_info = {
+                    'model_used': model_used,
+                    'confidence': confidence,
+                    'nhs_board_name': result.get('nhs_board_name', nhs_board)
+                }
+                
+                return int(round(prediction))
+            else:
+                logging.error("❌ Predictor is not initialized.")
+                st.error("❌ Predictor is not initialized. Please check model loading.")
+                raise CustomException("Predictor is not initialized.", sys)
             
         except Exception as e:
             logging.error(f"Error making prediction: {str(e)}")
