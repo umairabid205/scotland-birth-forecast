@@ -110,13 +110,15 @@ class NHSBirthPredictor:
         """Load all saved models and metadata"""
         try:
             print(f"🔍 Attempting to load models from: {self.model_dir}")
-            print(f"📁 Model directory exists: {os.path.exists(self.model_dir)}")
-            if os.path.exists(self.model_dir):
+            print(f"📁 Model directory exists: {os.path.exists(self.model_dir) if self.model_dir is not None else False}")
+            if self.model_dir is not None and os.path.exists(self.model_dir):
                 print(f"📂 Contents: {os.listdir(self.model_dir)}")
             
             logging.info("Loading production models...")
             
             # Check if linear regression model exists
+            if self.model_dir is None:
+                raise CustomException("Model directory is not set.", sys)
             lr_model_path = os.path.join(self.model_dir, 'linear_regression_model.pkl')
             print(f"🔍 Linear regression model path: {lr_model_path}")
             print(f"📄 File exists: {os.path.exists(lr_model_path)}")
