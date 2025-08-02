@@ -251,6 +251,7 @@ def main():
         <h4>🎯 Advanced Machine Learning Prediction System</h4>
         <p><strong>Primary Model:</strong> Linear Regression (MAE: 0.0033 - 99.9%+ accuracy)</p>
         <p><strong>Backup Model:</strong> XGBoost (MAE: 0.2583 - production ready)</p>
+        <p><strong>Deep Learning:</strong> Stacked LSTM (MAE: 0.0711 - neural network approach)</p>
         <p>Leveraging comprehensive feature engineering and production-ready deployment</p>
     </div>
     """, unsafe_allow_html=True)
@@ -373,6 +374,7 @@ def main():
         model_performance = [
             {'model': 'Linear Regression', 'MAE': 0.003310645231977105, 'MSE': 0.00039888828177936375, 'RMSE': 0.0199721877063922, 'SMAPE': 0.083487146},
             {'model': 'XGBoost', 'MAE': 0.25825074315071106, 'MSE': 0.10878119617700577, 'RMSE': 0.32981994508671814, 'SMAPE': 5.745336},
+            {'model': 'Stacked LSTM (Deep Learning)', 'MAE': 0.071088865, 'MSE': 0.021759575, 'RMSE': 0.14751127, 'SMAPE': 1.716737},
             {'model': 'Ensemble (LR 70% + XGB 30%)', 'MAE': 0.07878270745277405, 'MSE': 0.010035262443125248, 'RMSE': 0.10017615705907892, 'SMAPE': 1.7103056}
         ]
         
@@ -458,14 +460,55 @@ def main():
             </ul>
         </div>
         """, unsafe_allow_html=True)
+        
+        # Technical details expandable section
+        with st.expander("🔍 **Detailed Technical Model Information**"):
+            st.markdown("""
+            ### 🏆 **Linear Regression (Primary Model)**
+            - **Architecture**: Simple linear model with engineered features
+            - **Features**: Year, Month, NHS Board, Seasonal patterns (sin/cos), Lag features
+            - **Performance**: MAE: 0.0033, RMSE: 0.0199 (99.9%+ accuracy)
+            - **Training**: Scikit-learn LinearRegression with feature scaling
+            - **Advantages**: Highly interpretable, extremely fast, robust to outliers
+            
+            ### 🥈 **XGBoost (Gradient Boosting)**
+            - **Architecture**: Ensemble of 500 decision trees with gradient boosting
+            - **Features**: 11+ engineered features including rolling statistics and lag variables
+            - **Performance**: MAE: 0.258, RMSE: 0.330
+            - **Training**: Hyperparameter optimization with TimeSeriesSplit cross-validation
+            - **Advantages**: Handles non-linear patterns, feature importance analysis
+            
+            ### 🧠 **Stacked LSTM (Deep Learning)**
+            - **Architecture**: Multi-layer LSTM neural network (PyTorch)
+            - **Layers**: 2 stacked LSTM layers with 128 hidden units each
+            - **Features**: Sequential time series data with batch processing
+            - **Performance**: MAE: 0.0711, RMSE: 0.1475 (Good performance)
+            - **Training**: Adam optimizer with learning rate scheduling and early stopping
+            - **Advantages**: Captures temporal dependencies, handles sequences naturally
+            - **Challenges**: Requires larger datasets, more complex than linear models
+            
+            ### 🔀 **Ensemble Model**
+            - **Architecture**: Weighted combination (70% Linear Regression + 30% XGBoost)
+            - **Rationale**: Balances accuracy of LR with robustness of XGBoost
+            - **Performance**: MAE: 0.079, RMSE: 0.100
+            - **Use Case**: When uncertainty about data distribution is high
+            
+            ### 📊 **Key Insights**
+            - **Dataset Size**: Scotland birth data follows clear linear patterns
+            - **Temporal Patterns**: Strong seasonal and regional trends well-captured by linear models
+            - **Complexity Trade-off**: Simple models outperform complex ones due to clear underlying patterns
+            - **Production Considerations**: Linear Regression chosen for reliability and interpretability
+            - **LSTM Performance**: Shows good results but linear relationships dominate this dataset
+            """)
+    
     
     # Footer
     st.markdown("---")
     st.markdown("""
     <div style='text-align: center; color: gray;'>
-        Scotland Birth Forecast System | Linear Regression + XGBoost Models | Built with Streamlit | 2025
+        Scotland Birth Forecast System | Multi-Model ML Pipeline | Built with Streamlit | 2025
         <br>
-        <small>Primary Model: Linear Regression (MAE: 0.0033) | Secondary: XGBoost | Production Ready</small>
+        <small>Models: Linear Regression (Primary) • XGBoost • Stacked LSTM • Ensemble | Production Ready</small>
     </div>
     """, unsafe_allow_html=True)
 
